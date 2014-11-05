@@ -1,0 +1,147 @@
+
+************************************************************************************
+By VrilleUp, 2010/04/15
+email: vrilleup.pu@gmail.com
+This version of the project was completed in the year 2008.
+************************************************************************************
+
+=======================
+Introduction to DSP_INS
+=======================
+
+The open source project DSP_INS is an inertial navigation system on the TI DSP 
+platform TMS320F28335 with MEMS inertial sensors and commercial GPS module. Inertial 
+sensors are actually used only for estimating attitude, heading and velocity. 
+Position information totally comes from GPS (see Q2 in FAQ part). Currently the 
+MEMS IMU (Inertial Measurement Unit) ADIS16355 and GPS module u-blox LEA-5H
+are supported. DSP_INS also reads magnetic field data from HONEYWELL HMC1051/1052.
+You can also use the latest IMU module ADIS16405, which also contains magnetic field 
+sensors.
+
+There is a 10-order extended Kalman filter in DSP_INS, which takes angular velocity,
+acceleration, magnetic field, and GPS velocity as inputs. It provides outputs 
+including angular velocity, acceleration, attitude, heading, velocity, and position 
+(from GPS) every 10 milliseconds. DSP_INS is proved to be effective and reliable in 
+several robot and UAV projects.
+
+The software part of DSP_INS is free software; you can redistribute it and/or modify 
+it under the terms of the GNU General Public License version 3 as published by the 
+Free Software Foundation. The hardware PCB design files (Protel DXP 2004) are also 
+provided.
+
+This project is distributed in the hope that others could easily integrate a small 
+INS platform to their robot or UAV projects. But we do NOT PROVIDE ANY WARRANTY of 
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public 
+License for more details.
+
+You should have received a copy of the GNU General Public License along with this 
+project; if not, write to the Free Software Foundation, Inc., 59 Temple Place, 
+Suite 330, Boston, MA  02111-1307  USA
+
+===================
+How to Use DSP_INS?
+===================
+
+1. Copy f28335.gel to $CCSFOLDER\cc\gel\ and replace the original file (if exists). 
+Use this f28335.gel file in CCS, create a new project, and import the source in src.
+Make sure to use FPU (--float_support=fpu32) and include rts2800_fpu32.lib
+in the project (you can refer to the settings in DSP_INS.pjt).
+
+2. Set the right path for the files in DSP2833x_common and DSP2833x_headers.
+
+3. Run DSP_INS in RAM: use 28335_RAM_lnk_XINTF.cmd (in DSP2833x_common\cmd\);
+comment out the second MemCopy function in INS_Init.c (containing "Xintf..."); 
+rebuild; load .out file to TMS320F28335.
+
+4. Write DSP_INS in FLASH: use 28335_FLASH_lnk_XINTF.cmd (in DSP2833x_common\cmd\);
+uncomment the second MemCopy function in INS_Init.c (containing "Xintf...");
+rebuild; write .out file to the FLASH in TMS320F28335.
+
+5. Read data from the SCI output of TMS320F28335. Please refer to "INS_SendData2All"
+function in INS_Func.c for the data format.
+
+==================
+About the Hardware
+==================
+
+There are 5 Protel DXP 2004 PCB projects in the hardware folder. You can open all of
+them by opening the workspace file DSP_INS_Work.DsnWrk. DSP_INS.PrjPCB is the 4 
+layers DSP module. JTAG_PACK.PrjPCB contains the small PCB which converts standard
+JTAG connector to a smaller connector on the DSP module. Magnet_NEW.PrjPCB is the 
+magnetic field sensor module. GPS_PCB.PrjPCB is the GPS module. INS_ALL.PrjPCB is the
+big motherboard which hosts all the modules above.
+
+Before using u-blox LEA-5H GPS with DSP_INS, you need to set some parameters in the
+GPS module: RATE->Measurement = 4Hz, PRT->Protocol out = 0-UBX, MSG: output these 
+messages {NAV-SOL£¬NAV-POSLLH£¬NAV-VELNED£¬NAV-TIMEUTC}, CFG->Save current 
+configuration.
+
+For more reliable DSP power-on reset, it is recommended to add pull-up resistors 
+for GPIO84, 85, 86, and 87 of TMS320F28335 (which does not exist in the current
+DSP module).
+
+==================
+How to Contribute?
+==================
+
+As you see, the code of DSP_INS is not well organized. Variable and function names
+are sometimes confusing and not in consistent formats. Different functionalities are 
+mixed in some source code files. This is partially because the original purpose of
+this project is to implement a prototype INS system with MEMS sensors and evaluate 
+its feasibility. We are glad to see it works very well in many applications and 
+various environments. If you are interested in this project and have some time to
+improve the code quality, please contact vrilleup.pu@gmail.com.
+
+You can also contribute to this project by sending us some pictures or results of 
+your application which integrates DSP_INS.
+
+==========================
+Frequently Asked Questions
+==========================
+
+1. Why choose this DSP?
+Several requirements need to be considered when choosing the processor. First the 
+processor should have enough float point power for the extended Kalman filter. We did
+an experiment on AT91SAM9260 (ARM9) and TMS320F28335. AT91SAM9260 takes 52765ms for 
+30M addition operations and 68276ms for 30M multiplication operations. TMS320F28335 
+takes 4610ms for 30M addition operations and 4600ms for 30M multiplication operations 
+(all operations are with random float32 operands). TMS320F28335 could achieve at most 
+226Hz EKF output frequency with DSP_INS, which is 10 times faster than AT91SAM9260.
+Secondly the INS module is usually a part of a bigger control system, so it is 
+desired to integrate some perpheral components in the processor. TMS320F28335 has 
+various features like PWM, CAP/QEP, ADC, McBSP, I2C, UART, SPI and CAN, which exactly 
+meets this requirement. If you use DSP_INS, usually you still have enough 
+computational resources on the DSP to implement additional functions.
+
+2. Why not estimate position from accelerometers?
+A similar question is why not include position in the states vector. MEMS 
+accelerometer suffers from large zero bias and thermal instability, and thus cannot
+be used for positioning by integrating twice. Experiments results show that even with
+temperature calibrated data the position error could go as high as 100 meters within
+half a minute. On the other hand, data from GPS receiver are used for estimating long
+term gyro bais in the extended Kalman filter. But the position data from commercial 
+GPS receivers usually have much higher delay and latency than the velocity data, so
+only velocity is included in the observations. 
+
+3. What is the purpose of using IGRF/WMM model?
+In DSP_INS two main magnetic field models are adopted: the International Association 
+of Geomagnetism and Aeronomy (IAGA) International Geomagnetic Reference Field (IGRF) 
+model and the Department of Defense (DoD) World Magnetic Model (WMM). With these 
+models at any given location one can compute the geomagnetic field which can be used 
+as the reference for attitude and heading estimation in DSP_INS. But these models 
+only provide geomagnetic field in a coarse granularity. One should notice that in 
+the urban terrain the true values could be very different from the models. For more 
+details and the latest version of these models, please visit the NGDC website 
+(http://www.ngdc.noaa.gov/geomag/models.shtml). In the presence of valid GPS readings, 
+GPS velocity vector usually offers a better reference for the heading estimation, so 
+the data from magnetic field sensors can be ignored in this case. Another solution 
+(not implemented in the current DSP_INS) could be a bimodular setting, where the 
+geomagnetic field vector is first estimated when GPS readings are valid and then 
+used as the heading reference when GPS signal is lost. The difficulty of this method 
+lies in the fact that one has to estimate geomagnetic field vector and magnetic 
+interferences simultaneously.
+
+4. What is the state transition equation and observation equation for the extended 
+Kalman filter?
+Please refer to the comments in the source file EKFilter.c.
+
